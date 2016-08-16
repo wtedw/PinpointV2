@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
@@ -19,16 +20,21 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.View;
+import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ToggleButton;
 
 public class MainActivity extends Activity {
-    TextView hello;
-    TextView address;
-    TextView message;
-    ToggleButton toggleButton;
+    EditText ring;
+    EditText front;
+    EditText back;
+    EditText gps;
+    Button confirm;
+
     boolean permissionGranted;
     final String[] PERMISSIONS = new String[]{Manifest.permission.READ_SMS,
             Manifest.permission.RECEIVE_SMS,
@@ -40,33 +46,45 @@ public class MainActivity extends Activity {
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.SYSTEM_ALERT_WINDOW};
     final int PERMISSIONS_CODE = 0;
-    boolean enable = true;
+    int OVERLAY_PERMISSION_REQ_CODE = 1234;
 
-    public static int OVERLAY_PERMISSION_REQ_CODE = 1234;
+    SharedPreferences settings;
+    SharedPreferences.Editor editor;
+    public static final String KEYS_PREF = "KEYS";        // Just the name of the file to save key words
 
     public void onCreate(final Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        requestOverlay();
-        hello = (TextView) findViewById(R.id.hello);
-        message = (TextView) findViewById(R.id.message);
-        address = (TextView) findViewById(R.id.address);
-        toggleButton = (ToggleButton) findViewById(R.id.toggleButton);
-        toggleButton.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                if (isChecked) {
-                    // The toggle is enabled
-                    enable = true;
-                    Toast.makeText(getBaseContext(), "Enabled", Toast.LENGTH_LONG).show();
-                } else {
-                    // The toggle is disabled
-                    enable = false;
-                    Toast.makeText(getBaseContext(), "Disabled", Toast.LENGTH_LONG).show();
-                }
+
+        // Init SharedPreferences
+        settings = getApplicationContext().getSharedPreferences(KEYS_PREF, 0);
+        editor = settings.edit();
+
+        ring = (EditText) findViewById(R.id.etRing);
+        front = (EditText) findViewById(R.id.etFront);
+        back = (EditText) findViewById(R.id.etBack);
+        gps = (EditText) findViewById(R.id.etGPS);
+        confirm = (Button) findViewById(R.id.confirm);
+        confirm.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                editor.putString("ring", ring.getText().toString());
+                editor.putString("front", front.getText().toString());
+                editor.putString("back", back.getText().toString());
+                editor.putString("gps", gps.getText().toString());
+                editor.apply();
+                Toast.makeText(getApplicationContext(), "Key words saved", Toast.LENGTH_LONG).show();
             }
         });
-        permissionGranted = hasPermissions(this, PERMISSIONS);
 
+        ring.setText(settings.getString("ring", "Pinpoint"));
+        front.setText(settings.getString("front", "Pinpoint front"));
+        back.setText(settings.getString("back", "Pinpoint back"));
+        gps.setText(settings.getString("gps", "Pinpoint gps"));
+
+
+        // Request Permissions
+        permissionGranted = hasPermissions(this, PERMISSIONS);
+        requestOverlay();   // For some reason, Android 22+ requires requesting this in a different fashion
         if (!hasPermissions(this, PERMISSIONS)) {
             Toast.makeText(getBaseContext(), "Permissions need to be granted", Toast.LENGTH_LONG).show();
             ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSIONS_CODE);
@@ -98,7 +116,7 @@ public class MainActivity extends Activity {
 
                     // permission was granted, yay! Do the
                     // contacts-related task you need to do.
-                    Toast.makeText(getBaseContext(), "You have accepted all permissions granted", Toast.LENGTH_LONG).show();
+                    Toast.makeText(getBaseContext(), "You have accepted all permissions", Toast.LENGTH_LONG).show();
                     permissionGranted = true;
 
                 } else {
@@ -132,8 +150,10 @@ public class MainActivity extends Activity {
             if (!Settings.canDrawOverlays(this)) {
                 // SYSTEM_ALERT_WINDOW permission not granted...
                 Toast.makeText(getBaseContext(), "Not granted", Toast.LENGTH_LONG).show();
+                requestOverlay();
+            } else {
+                Toast.makeText(getBaseContext(), "granted", Toast.LENGTH_LONG).show();
             }
-            Toast.makeText(getBaseContext(), "granted", Toast.LENGTH_LONG).show();
         }
     }
 
